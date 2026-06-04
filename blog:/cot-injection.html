@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>What a chain-of-thought monitor actually detects — shagun hegde</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;1,400&family=Caveat:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #fffef9;
+      --accent-yellow: #fef3a0;
+      --accent-yellow-dark: #f5e44a;
+      --text: #111;
+      --text-muted: #555;
+      --border: #e8e4d4;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Lora', Georgia, serif;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .wrap {
+      position: relative;
+      z-index: 1;
+      max-width: 640px;
+      margin: 0 auto;
+      padding: 3.5rem 1.5rem 6rem;
+      animation: fadeUp 0.5s ease both;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(14px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* nav */
+    nav {
+      margin-bottom: 3rem;
+    }
+
+    .back-link {
+      font-family: 'Caveat', cursive;
+      font-size: 1rem;
+      color: var(--text-muted);
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      transition: color 0.15s;
+    }
+
+    .back-link:hover { color: var(--text); }
+    .back-link svg { width: 14px; height: 14px; fill: currentColor; }
+
+    /* header */
+    .post-header { margin-bottom: 2.5rem; }
+
+    .post-meta {
+      font-family: 'Caveat', cursive;
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      margin-bottom: 0.8rem;
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .post-tag {
+      display: inline-block;
+      font-family: 'Caveat', cursive;
+      font-size: 0.8rem;
+      background: var(--accent-yellow);
+      border: 1px solid var(--accent-yellow-dark);
+      border-radius: 999px;
+      padding: 0.1rem 0.6rem;
+      color: #666;
+    }
+
+    h1 {
+      font-family: 'Lora', Georgia, serif;
+      font-weight: 500;
+      font-size: 1.7rem;
+      line-height: 1.3;
+      letter-spacing: -0.01em;
+      margin-bottom: 0.8rem;
+    }
+
+    .post-deck {
+      font-size: 1rem;
+      color: var(--text-muted);
+      line-height: 1.7;
+      font-style: italic;
+      border-left: 3px solid var(--accent-yellow-dark);
+      padding-left: 1rem;
+      margin-top: 1rem;
+    }
+
+    .divider {
+      width: 36px;
+      height: 2px;
+      background: var(--accent-yellow-dark);
+      border-radius: 2px;
+      margin: 2rem 0;
+    }
+
+    /* body copy */
+    .post-body { line-height: 1.8; font-size: 1rem; }
+
+    .post-body h2 {
+      font-family: 'Lora', Georgia, serif;
+      font-weight: 500;
+      font-size: 1.15rem;
+      margin: 2.2rem 0 0.7rem;
+      letter-spacing: -0.01em;
+    }
+
+    .post-body p {
+      margin-bottom: 1.2rem;
+      color: #222;
+    }
+
+    .post-body em { font-style: italic; }
+    .post-body strong { font-weight: 600; }
+
+    .post-body .callout {
+      background: var(--accent-yellow);
+      border-left: 3px solid var(--accent-yellow-dark);
+      padding: 0.9rem 1.1rem;
+      border-radius: 0 4px 4px 0;
+      margin: 1.5rem 0;
+      font-size: 0.96rem;
+      color: #333;
+      line-height: 1.7;
+    }
+
+    /* footnote style for dataset info */
+    .note {
+      font-family: 'Caveat', cursive;
+      font-size: 0.88rem;
+      color: var(--text-muted);
+      margin-top: 2.5rem;
+      padding-top: 1.2rem;
+      border-top: 1.5px solid var(--border);
+      line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <nav>
+      <a class="back-link" href="../blog.html">
+        <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+        all posts
+      </a>
+    </nav>
+
+    <header class="post-header">
+      <div class="post-meta">
+        june 2025
+        &nbsp;·&nbsp;
+        <span class="post-tag">alignment</span>
+        <span class="post-tag">ai control</span>
+        <span class="post-tag">mechanistic interp</span>
+      </div>
+      <h1>What a chain-of-thought monitor actually detects</h1>
+      <p class="post-deck">
+        Notes on a small CoT-injection study (H1–H2). Subject: DeepSeek-R1-Distill-Qwen-1.5B.
+        Monitor: Claude Haiku 4.5. Dataset: 50 MMLU items. A headline result that rests on a calibration
+        point I'd want others to check before trusting it.
+      </p>
+    </header>
+
+    <div class="divider"></div>
+
+    <article class="post-body">
+
+      <h2>The threat model</h2>
+      <p>
+        CoT oversight assumes that reading a model's reasoning tells you something true about how it reached
+        its answer. AI-control proposals build on this — box an untrusted model, have a trusted monitor watch
+        its chain-of-thought, and flag anything that looks like the untrusted model pursuing a bad objective.
+        The assumption breaks if an attacker can write into the CoT.
+      </p>
+      <p>
+        Closed models cryptographically sign their thinking blocks, so the realistic attack surface is
+        open-weight reasoning models, where the <code>&lt;think&gt;</code> block is just text the harness controls.
+        The question I asked: if an attacker controls part of that trace, how robust is CoT monitoring, and how
+        does that robustness scale with how much of the trace the attacker owns?
+      </p>
+      <p>
+        I framed it as a standard control eval — an untrusted subject (a 1.5B distilled reasoner, chosen precisely
+        because its think block is injectable), an attack policy and a blind monitor (both Claude Haiku 4.5),
+        a faithfulness judge, and an attack-cost axis (injection length).
+      </p>
+
+      <h2>H1: length</h2>
+      <p>
+        I pre-registered the hypothesis that monitorability degrades <em>non-linearly</em> as the injection grows —
+        more attacker tokens, more room to bury the tell, lower signal for the monitor. It was falsified.
+        The monitor flagged <em>more</em> as injections got longer (flag rate roughly 65% → 75% → 93% across
+        100/300/700 tokens), not less.
+      </p>
+      <p>
+        The result that mattered came from the validity audit, not the hypothesis. Two findings reshaped everything.
+        First, behavioral influence is real and scales: after a clean-baseline filter — counting only items the model
+        did not already answer the attacker's way unprompted — the injection flipped the answer 23% → 31% → 61%
+        of the time as length grew, and the model essentially never acknowledged the planted reasoning.
+      </p>
+
+      <div class="callout">
+        Second, and more uncomfortable: the "strong" monitor flagged 42% of perfectly clean, un-injected traces.
+        Its 93% flag rate at 700 tokens is not 93% detection; it is a monitor flagging most of what it reads.
+        <strong>Reporting flag rate without false-positive rate would have been the central error of the study.</strong>
+      </div>
+
+      <p>
+        Correcting for that with Youden's <em>J</em> (flag rate minus false-positive rate), the capable monitor's real
+        informedness <em>rises</em> with length, while a small Qwen monitor's <em>falls</em>, and a 0.5B monitor carries
+        no signal at all. So "does a longer injection get caught more?" has no answer independent of which monitor
+        you ask. There is no single monitorability-versus-length curve — there is one per capability tier, and they
+        point in opposite directions.
+      </p>
+
+      <h2>H2: content vs. verbosity</h2>
+      <p>
+        H1 left an obvious confound: was the monitor reacting to <em>bad reasoning</em>, or merely to
+        <em>length and anomaly</em>? H2 tests this with matched pairs. For each successful coherent-wrong
+        injection (Family B), I generated an off-topic filler injection (Family C) matched in length and
+        final answer letter, but with no on-topic content. The only thing that varies is content quality.
+      </p>
+      <p>
+        The pre-registered metric — the gap in undetected-success rate between B and C — came out at zero.
+        But that is the same 42% false-positive artifact again, not a real null. The signal is in separating
+        influence from detection. At 700 tokens, the coherent argument captured the answer 61% of the time
+        against 12% for filler: content drove a 5× difference in how often the attack actually worked.
+        Yet the monitor flagged both at essentially the same rate (92% vs 91%).
+        <strong>A 61%-effective attack and a 12%-effective one look identical to it.</strong>
+      </p>
+      <p>
+        At 100 tokens, content didn't matter for influence either, and the monitor actually flagged the
+        off-topic filler <em>more</em> — the opposite of what I'd predicted.
+      </p>
+
+      <div class="callout">
+        The conclusion the data supports is narrow but sharp: this monitor is a length-and-anomaly detector,
+        not a reasoning-quality detector. Its flag tells you that something unusual is in the trace.
+        It tells you nothing about whether the injection worked.
+      </div>
+
+      <h2>Why I think this matters</h2>
+      <p>
+        Put H1 and H2 together and the picture is consistent: length drives both influence and flagging;
+        content drives only influence. The monitoring signal is, functionally, a length detector sitting
+        on top of a real length-by-content effect on behaviour.
+      </p>
+      <p>
+        For anyone leaning on CoT monitoring for oversight, two things follow. A monitor that flags
+        everything looks maximally safe — near-zero successful evasion — while being useless, because it
+        has no discriminative power. And the apparent robustness here was <em>entirely</em> an artifact of
+        miscalibration: against a properly calibrated monitor, the same data implies substantial undetected
+        influence, and the content effect reappears.
+      </p>
+      <p>
+        Recall without calibration is not evidence of safety, and an evasion metric computed against a
+        trigger-happy monitor measures the monitor's base rate, not the attack.
+      </p>
+
+      <h2>Caveats</h2>
+      <p>
+        This is one 1.5B subject, one attack generator, and one primary monitor — and the generator and
+        monitor share a model family, which is a real confound — with small per-cell samples. The robust
+        claims are the signs and orderings, not the magnitudes.
+      </p>
+      <p>
+        The obvious next steps are running the content test against the calibrated monitor directly,
+        adding a self-correction attack family, and a subject-size sweep to see whether the
+        length-by-content crossover is model-specific. I'd welcome pointers to prior work I've likely missed.
+      </p>
+
+      <p class="note">
+        i'm new to alignment research, coming from a software engineering background (7 years at Goldman Sachs).
+        this is my first real control evaluation rather than a toy — sharing partly for feedback.
+        reach out on <a href="https://twitter.com/YOUR_HANDLE">twitter</a> or
+        <a href="mailto:your@email.com">email</a> if you have thoughts.
+      </p>
+
+    </article>
+  </div>
+</body>
+</html>
