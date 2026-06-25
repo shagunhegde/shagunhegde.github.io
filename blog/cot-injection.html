@@ -292,6 +292,15 @@
         adding a self-correction attack family, and a subject-size sweep to see whether the
         length-by-content crossover is model-specific. I'd welcome pointers to prior work I've likely missed.
       </p>
+      <p>
+        There's a second reading of that redirect worth making explicit, because it ties the mechanism back to the monitoring question that started all this. The redirect is an activation edit: take the top heads' outputs and write them into a clean run — one with no injected <think> text at all — and the answer moves to the letter I chose. 
+          The prompt the model sees, and therefore the trace any chain-of-thought monitor would read, is byte-for-byte the clean one.
+      </p>
+      <p>
+        One thing the recovery metric deliberately doesn't tell you is what happened to the model's original answer. A flip to the target is consistent with two different stories: the injection erased the original belief (overwrite), or it left that belief intact in the residual and simply outvoted it (suppress). 
+        The recovery number — how strongly the target wins — is identical either way. Telling them apart needs a different readout: logit-lens the original answer's letter across layers, clean run against injected, and watch whether its trajectory collapses inside the 17–22 window or just gets overtaken late. 
+        Equivalently, decompose the logit-diff swing into the part that comes from building the target up versus the part that comes from tearing the original answer down. That decomposition is the clean way to settle overwrite-versus-suppress — same metric, same heads, pointed at the original answer instead of the target — and it's the next cut on this set.
+      </p>
 
       <p class="note">
         Sharing these notes for feedback.
