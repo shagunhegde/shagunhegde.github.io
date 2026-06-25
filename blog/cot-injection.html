@@ -281,12 +281,6 @@
         trigger-happy monitor measures the monitor's base rate, not the attack.
       </p>
 
-      <h2>Caveats</h2>
-      <p>
-        This is one 1.5B subject, one attack generator, and one primary monitor — and the generator and
-        monitor share a model family, which is a real confound — with small per-cell samples. The robust
-        claims are the signs and orderings, not the magnitudes.
-      </p>
       <h2>The redirect as an activation edit</h2>
       <p>
         The obvious next steps are running the content test against the calibrated monitor directly,
@@ -302,7 +296,12 @@
         The recovery number — how strongly the target wins — is identical either way. Telling them apart needs a different readout: logit-lens the original answer's letter across layers, clean run against injected, and watch whether its trajectory collapses inside the 17–22 window or just gets overtaken late. 
         Equivalently, decompose the logit-diff swing into the part that comes from building the target up versus the part that comes from tearing the original answer down. That decomposition is the clean way to settle overwrite-versus-suppress — same metric, same heads, pointed at the original answer instead of the target — and it's the next cut on this set.
       </p>
-
+      <h2>Caveats</h2>
+      <p>
+        This is one 1.5B subject, one attack generator, and one primary monitor — and the generator and
+        monitor share a model family, which is a real confound — with small per-cell samples. The robust
+        claims are the signs and orderings, not the magnitudes.
+      </p>
       <p class="note">
         Sharing these notes for feedback.
         reach out on <a href="https://twitter.com/shagunhegde">twitter</a> or
