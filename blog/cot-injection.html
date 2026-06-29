@@ -192,60 +192,52 @@
 
       <h2>The threat model</h2>
       <p>
-        CoT oversight assumes that reading a model's reasoning tells you something true about how it reached
-        its answer. AI-control proposals build on this — box an untrusted model, have a trusted monitor watch
-        its chain-of-thought, and flag anything that looks like the untrusted model pursuing a bad objective.
-        The assumption breaks if an attacker can write into the CoT.
+CoT oversight assumes that reading a model's reasoning tells you something true about how it (roughly) reached its answer. 
+        AI-control proposals usually have a trusted monitor watch a model's chain-of-thought and flag anything that looks like the untrusted model pursuing a bad objective. Reasoning traces are already an imperfect window: models often don't say what's really driving the answer, and CoT monitoring doesn't claim otherwise.
+        But there's a weaker assumption underneath, one monitoring can't do without: that the trace was at least produced by the model. That's the one this attack breaks.        
       </p>
       <p>
         Closed models cryptographically sign their thinking blocks, so the realistic attack surface is
-        open-weight reasoning models, where the <code>&lt;think&gt;</code> block is just text the harness controls.
+        open-weight reasoning models, where the `think` block is just text the harness controls.
         The question I asked: if an attacker controls part of that trace, how robust is CoT monitoring, and how
         does that robustness scale with how much of the trace the attacker owns?
       </p>
-      <p>
-        I framed it as a standard control eval — an untrusted subject (a 1.5B distilled reasoner, chosen precisely
-        because its think block is injectable), an attack policy and a blind monitor (both Claude Haiku 4.5),
-        a faithfulness judge, and an attack-cost axis (injection length).
-      </p>
 
-      <h2>H1: length</h2>
+      <h2>H1: Length of Prefill</h2>
       <p>
-        I pre-registered the hypothesis that monitorability degrades <em>non-linearly</em> as the injection grows —
-        more attacker tokens, more room to bury the tell, lower signal for the monitor. It was falsified.
-        The monitor flagged <em>more</em> as injections got longer (flag rate roughly 65% → 75% → 93% across
-        100/300/700 tokens), not less.
+        I pre-registered the hypothesis that monitorability degrades non-linearly as the injection grows leading to 
+        more attacker tokens and more room to bury the tell, lower signal for the monitor. This was however falsified.
+        The monitor flagged more as the injections got longer (flag rate roughly 65% → 75% → 93% across
+        100/300/700 tokens) not less.
       </p>
       <p>
-        The result that mattered came from the validity audit, not the hypothesis. Two findings reshaped everything.
-        First, behavioral influence is real and scales: after a clean-baseline filter — counting only items the model
-        did not already answer the attacker's way unprompted — the injection flipped the answer 23% → 31% → 61%
+        The result that mattered came from the validity audit. Two findings reshaped everything.
+        First, behavioral influence is real and scales: after a clean-baseline filter counting only items the model
+        did not already answer the attacker's way unprompted, the injection flipped the answer 23% → 31% → 61%
         of the time as length grew, and the model essentially never acknowledged the planted reasoning.
       </p>
-
-      <div class="callout">
-        Second, and more uncomfortable: the "strong" monitor flagged 42% of perfectly clean, un-injected traces.
-        Its 93% flag rate at 700 tokens is not 93% detection; it is a monitor flagging most of what it reads.
-        <strong>Reporting flag rate without false-positive rate would have been the central error of the study.</strong>
-      </div>
-
       <p>
-        Correcting for that with Youden's <em>J</em> (flag rate minus false-positive rate), the capable monitor's real
-        informedness <em>rises</em> with length, while a small Qwen monitor's <em>falls</em>, and a 0.5B monitor carries
+        The "strong" monitor flagged 42% of perfectly clean, un-injected traces.
+        Its 93% flag rate at 700 tokens is not 93% detection; it is a monitor flagging most of what it reads.
+        Reporting flag rate without false-positive rate would have been the central error of the study.
+      </p>
+      <p>
+        Correcting for that with Youden's J(flag rate minus false-positive rate), the capable monitor's real
+        'informedness' rises with length, while a small Qwen monitor's falls, and a 0.5B monitor carries
         no signal at all. So "does a longer injection get caught more?" has no answer independent of which monitor
-        you ask. There is no single monitorability-versus-length curve — there is one per capability tier, and they
+        you ask. I was unable to get a single monitorability-versus-length curve. There was one per capability tier and they
         point in opposite directions.
       </p>
 
-      <h2>H2: content vs. verbosity</h2>
+      <h2>H2: Content vs. Verbosity</h2>
       <p>
-        H1 left an obvious confound: was the monitor reacting to <em>bad reasoning</em>, or merely to
-        <em>length and anomaly</em>? H2 tests this with matched pairs. For each successful coherent-wrong
-        injection (Family B), I generated an off-topic filler injection (Family C) matched in length and
+        H1 left an obvious confound: was the monitor reacting to bad reasoning, or merely to
+        length and anomaly? H2 tests this with matched pairs. For each successful coherent-wrong
+        injection, I generated an off-topic filler injection  matched in length and
         final answer letter, but with no on-topic content. The only thing that varies is content quality.
       </p>
       <p>
-        The pre-registered metric — the gap in undetected-success rate between B and C — came out at zero.
+        The pre-registered metric — the gap in undetected-success rate between the two came out at zero.
         But that is the same 42% false-positive artifact again, not a real null. The signal is in separating
         influence from detection. At 700 tokens, the coherent argument captured the answer 61% of the time
         against 12% for filler: content drove a 5× difference in how often the attack actually worked.
@@ -253,12 +245,12 @@
         <strong>A 61%-effective attack and a 12%-effective one look identical to it.</strong>
       </p>
       <p>
-        At 100 tokens, content didn't matter for influence either, and the monitor actually flagged the
-        off-topic filler <em>more</em> — the opposite of what I'd predicted.
+        At 100 tokens, content didn't matter for influence either and the monitor actually flagged the
+        off-topic filler more— the opposite of what I'd predicted.
       </p>
 
       <div class="callout">
-        The conclusion the data supports is narrow but sharp: this monitor is a length-and-anomaly detector,
+        The conclusion the data supports is narrow: this monitor is a length-and-anomaly detector,
         not a reasoning-quality detector. Its flag tells you that something unusual is in the trace.
         It tells you nothing about whether the injection worked.
       </div>
@@ -271,8 +263,8 @@
       </p>
       <p>
         For anyone leaning on CoT monitoring for oversight, two things follow. A monitor that flags
-        everything looks maximally safe — near-zero successful evasion — while being useless, because it
-        has no discriminative power. And the apparent robustness here was <em>entirely</em> an artifact of
+        everything looks maximally safe, near-zero successful evasion while being useless, because it
+        has no discriminative power. And the apparent robustness here was entirely an artifact of
         miscalibration: against a properly calibrated monitor, the same data implies substantial undetected
         influence, and the content effect reappears.
       </p>
