@@ -280,32 +280,27 @@
         Recall without calibration is not evidence of safety, and an evasion metric computed against a
         trigger-happy monitor measures the monitor's base rate, not the attack.
       </p>
+<h2>What the injection is doing inside the model</h2>
 
-      <h2>The redirect as an activation edit</h2>
-      <p>
-        The obvious next steps are running the content test against the calibrated monitor directly,
-        adding a self-correction attack family, and a subject-size sweep to see whether the
-        length-by-content crossover is model-specific. I'd welcome pointers to prior work I've likely missed.
-      </p>
-      <p>
-        There's a second reading of that redirect worth making explicit, because it ties the mechanism back to the monitoring question that started all this. The redirect is an activation edit: take the top heads' outputs and write them into a clean run — one with no injected <think> text at all — and the answer moves to the letter I chose. 
-          The prompt the model sees, and therefore the trace any chain-of-thought monitor would read, is byte-for-byte the clean one.
-      </p>
-      <p>
-        One thing the recovery metric deliberately doesn't tell you is what happened to the model's original answer. A flip to the target is consistent with two different stories: the injection erased the original belief (overwrite), or it left that belief intact in the residual and simply outvoted it (suppress). 
-        The recovery number — how strongly the target wins — is identical either way. Telling them apart needs a different readout: logit-lens the original answer's letter across layers, clean run against injected, and watch whether its trajectory collapses inside the 17–22 window or just gets overtaken late. 
-        Equivalently, decompose the logit-diff swing into the part that comes from building the target up versus the part that comes from tearing the original answer down. That decomposition is the clean way to settle overwrite-versus-suppress — same metric, same heads, pointed at the original answer instead of the target — and it's the next cut on this set.
-      </p>
+<p>The monitoring results describe the trace from the outside. I also wanted to know what the injection does inside the model, so I used activation patching, swapping internal activations from the injected run into a clean one, on the 66 items where the clean answer differs from the target.</p>
+
+<p>I checked first that patching the full residual reproduces the original effect, so the component patches are trustworthy. Patching the residual stream layer by layer, the override commits at layer 22, and it's written by attention rather than the MLP. Broken down by head, three heads at layer 22 carry most of it (heads 7, 4, and 9), with one other head pushing the answer the other way. They also transfer: take those heads' outputs from one question and write them into a different one, and the second question moves to the answer I picked in 40% of the pairs I tried. So the override is a small, reusable object rather than something smeared across the whole network.</p>
+
+<p>Two things follow that bear on the monitoring question.</p>
+
+<p>First, when the injection wins, does it erase the model's original answer or just outvote it? Reading each layer's belief in the target and the original answer with a logit lens, it comes out a mix. About +4.25 of the swing is the target being built up and +2.83 is the original being torn down, an overwrite share of 0.37, so both happen, with building-up the larger part.</p>
+
+<p>Second, and this is the part that matters for monitoring. Because the override is just those three heads, you don't need the injected text at all. Patch their outputs into a clean run, with nothing added to the think block, and the answer still moves to the target in 26% of items. 
+  The trace a monitor reads is the original clean prefix, unchanged in every case, so a text monitor returns the same verdict whether or not the edit happened. This is partly definitional, since a text monitor obviously can't read activations. The point is that the thing needed to flip the answer is this small and this localized, and it leaves nothing in the text to catch. So the loud text attack from the first half of this post, the one the monitor flags about 92% of the time, has a quiet twin it never sees.</p>
       <h2>Caveats</h2>
       <p>
-        This is one 1.5B subject, one attack generator, and one primary monitor — and the generator and
-        monitor share a model family, which is a real confound — with small per-cell samples. The robust
+        This is one 1.5B subject, one attack generator, and one primary monitor and the generator and
+        monitor share a model family, which is a real confound with small per-cell samples. The robust
         claims are the signs and orderings, not the magnitudes.
       </p>
       <p class="note">
         Sharing these notes for feedback.
-        reach out on <a href="https://twitter.com/shagunhegde">twitter</a> or
-        <a href="mailto:shagunhegde@gmail.com">email</a> if you have thoughts.
+        reach out at <a href="mailto:shagunhegde@gmail.com">email</a> if you have thoughts.
       </p>
 
     </article>
